@@ -1,0 +1,4 @@
+max_width = 70
+chain_width = 40
+color = "Always"
+combine_control_expr = false
