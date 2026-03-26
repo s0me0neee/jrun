@@ -9,6 +9,16 @@ macro_rules! error {
 }
 
 #[macro_export]
+macro_rules! warning {
+    ($fmt:expr, $($arg:tt)+) => {
+        format!("{} {}", "[Warning]".yellow(), format!($fmt, $($arg)+))
+    };
+    ($msg:expr) => {
+        format!("{} {}", "[Warning]".yellow(), $msg)
+    };
+}
+
+#[macro_export]
 macro_rules! info {
     ($tag:expr, $fmt:expr, $($arg:tt)+) => {
         format!("{} {}",

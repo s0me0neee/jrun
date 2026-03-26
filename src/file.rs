@@ -1,5 +1,27 @@
 use std::path::{self, PathBuf};
 
+#[macro_export]
+macro_rules! defult_setting_path {
+    () => {{
+        let mut config_path = dirs::config_dir().ok_or_else(|| {
+            "Can't get config path for your system".to_string()
+        })?;
+        config_path.push("setting.json");
+        config_path
+    }};
+}
+
+#[macro_export]
+macro_rules! defult_config_path {
+    () => {{
+        let mut config_path = dirs::config_dir().ok_or_else(|| {
+            "Can't get config path for your system".to_string()
+        })?;
+        config_path.push("config.json");
+        config_path
+    }};
+}
+
 pub fn validate_file(path: PathBuf) -> Result<PathBuf, String> {
     let path = path::absolute(path).map_err(|e| e.to_string())?;
 
