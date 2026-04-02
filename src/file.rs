@@ -1,22 +1,20 @@
 use std::path::{self, PathBuf};
 
 #[macro_export]
-macro_rules! defult_setting_path {
+macro_rules! default_setting_path {
     () => {{
-        let mut config_path = dirs::config_dir().ok_or_else(|| {
-            "Can't get config path for your system".to_string()
-        })?;
+        let mut config_path = dirs::config_dir().expect("Can't get config path for your system");
+        config_path.push("jrun2");
         config_path.push("setting.json");
         config_path
     }};
 }
 
 #[macro_export]
-macro_rules! defult_config_path {
+macro_rules! default_config_path {
     () => {{
-        let mut config_path = dirs::config_dir().ok_or_else(|| {
-            "Can't get config path for your system".to_string()
-        })?;
+        let mut config_path = dirs::config_dir().expect("Can't get config path for your system");
+        config_path.push("jrun2");
         config_path.push("config.json");
         config_path
     }};
