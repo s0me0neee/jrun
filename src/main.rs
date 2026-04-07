@@ -54,11 +54,11 @@ fn main() {
         }
     };
 
-    if args.list {
-        if let Err(e) = list_available() {
-            println!("{}", error!(e));
-            std::process::exit(1);
-        }
+    if args.list
+        && let Err(e) = list_available()
+    {
+        println!("{}", error!(e));
+        std::process::exit(1);
     }
 
     if args.list
@@ -225,10 +225,10 @@ fn setting_init() -> Result<PathBuf, String> {
     if setting_path.exists() {
         let setting = Setting::read()
             .map_err(|e| format!("Failed to read existing setting: {}", e))?;
-        if !setting.config_path.exists() {
-            if let Some(parent) = setting.config_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
+        if !setting.config_path.exists()
+            && let Some(parent) = setting.config_path.parent()
+        {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         return Ok(setting.config_path);
     }
@@ -238,10 +238,10 @@ fn setting_init() -> Result<PathBuf, String> {
         config_path: def_config_path.clone(),
     };
 
-    if let Some(parent) = setting_path.parent() {
-        if !parent.exists() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
+    if let Some(parent) = setting_path.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
     Setting::write(def_setting).map_err(|e| e.to_string())?;

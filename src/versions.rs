@@ -27,7 +27,7 @@ fn find_tool(tool: &str) -> Vec<(String, String)> {
     let Ok(paths) = which::which_all_global(tool) else {
         return Vec::new();
     };
-    paths.filter_map(|p| get_tool_info(p)).collect()
+    paths.filter_map(get_tool_info).collect()
 }
 
 pub fn find_jvm() -> Result<Vec<Jvm>, String> {
