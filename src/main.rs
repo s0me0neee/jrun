@@ -1,7 +1,10 @@
 use clap::Parser;
 use owo_colors::OwoColorize;
-use std::{path::PathBuf, process::exit};
-use which::which;
+use std::{
+    path::{Path, PathBuf},
+    process::exit,
+};
+use which::{which, which_global};
 
 use crate::{
     config::{Config, Setting},
@@ -54,20 +57,39 @@ fn main() {
         }
     };
 
-    if args.list
-        && let Err(e) = list_available()
-    {
-        println!("{}", error!(e));
-        std::process::exit(1);
+    if args.list {
+        match list_available() {
+            Ok(_) => {
+                return;
+            }
+            Err(e) => {
+                println!("{}", error!(e))
+            }
+        }
     }
 
-    if args.list
-        && args.file.is_none()
-        && args.set_default.is_none()
-        && args.toolchain.is_none()
-    {
-        return;
-    }
+    let input_file = match args.file {
+        Some(f) => f,
+        None => {
+            if args.list
+                || args.set_default.is_some()
+                || args.toolchain.is_some()
+            {
+                return;
+            }
+            eprintln!("{}", error!("No file specified"));
+            std::process::exit(1);
+        }
+    };
+
+    let target_path = match file::validate_file(PathBuf::from(&input_file)) {
+        Ok(p) => p,
+        Err(e) => {
+            let epath = &input_file;
+            eprintln!("{}", error!("{} for target: {}", e, epath));
+            std::process::exit(1);
+        }
+    };
 
     let jvms = find_jvm().unwrap_or_else(|e| {
         eprintln!("{}", error!(e));
@@ -78,6 +100,7 @@ fn main() {
         exit(1);
     });
 
+    //TODO: logic not completed yet.
     if let Some(ref input_version) = args.set_default {
         if input_version.len() != 2 {
             eprintln!(
@@ -118,24 +141,25 @@ fn main() {
                 exit(1);
             })
     } else {
-        let (jvm_version, jvm_path) = get_tool_info(config.jvm.clone())
+        dbg!(&config);
+        let (jvm_version, jvm_path) = get_tool_info(config.jvm_path.clone())
             .unwrap_or_else(|| {
                 eprintln!(
                     "{}",
                     error!(
                         "Could not get JVM info from config path: {:?}",
-                        config.jvm
+                        config.jvm_path
                     )
                 );
                 exit(1);
             });
-        let (javac_version, javac_path) = get_tool_info(config.javac.clone())
-            .unwrap_or_else(|| {
+        let (javac_version, javac_path) =
+            get_tool_info(config.javac_path.clone()).unwrap_or_else(|| {
                 eprintln!(
                     "{}",
                     error!(
                         "Could not get JavaC info from config path: {:?}",
-                        config.javac
+                        config.javac_path
                     )
                 );
                 exit(1);
@@ -165,33 +189,12 @@ fn main() {
         );
     }
 
-    let input_file = match args.file {
-        Some(f) => f,
-        None => {
-            if args.list
-                || args.set_default.is_some()
-                || args.toolchain.is_some()
-            {
-                return;
-            }
-            eprintln!("{}", error!("No file specified"));
-            std::process::exit(1);
-        }
-    };
-
-    let target_path = match file::validate_file(PathBuf::from(&input_file)) {
-        Ok(p) => p,
-        Err(e) => {
-            let epath = &input_file;
-            eprintln!("{}", error!("{} for target: {}", e, epath));
-            std::process::exit(1);
-        }
-    };
-
     let output_path = args.output.map(PathBuf::from);
-
     match java::compile(current_toolchain, target_path, output_path) {
-        Ok(_) => println!("{}", info!("Compile", "Success")),
+        Ok(i) => {
+            println!("{}", info!("Compile", "Success {}", i.0));
+            println!("{}", info!("Compile", "Out: {}", i.1.display()))
+        }
         Err(e) => {
             eprintln!("{}", error!("Compile failed: {}", e));
             std::process::exit(1);
@@ -250,17 +253,18 @@ fn setting_init() -> Result<PathBuf, String> {
 
 fn config_init(config_path: PathBuf) -> Result<Config, String> {
     if config_path.exists() {
+        dbg!(&config_path);
         return Config::read(&config_path);
     }
 
-    let def_c = which("javac")
+    let def_c = which::which_global("javac")
         .map_err(|_| "Could not find 'javac' in PATH".to_string())?;
-    let def_jvm = which("java")
+    let def_jvm = which::which_global("java")
         .map_err(|_| "Could not find 'java' in PATH".to_string())?;
 
     let def_config = Config {
-        jvm: def_jvm,
-        javac: def_c,
+        jvm_path: def_jvm,
+        javac_path: def_c,
     };
 
     def_config.write(&config_path)?;

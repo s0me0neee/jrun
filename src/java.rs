@@ -21,7 +21,7 @@ pub fn compile(
     compiler: Toolchain,
     path: PathBuf,
     outpath: Option<PathBuf>,
-) -> Result<String, String> {
+) -> Result<(String, PathBuf), String> {
     let compiler = compiler.javac;
     println!(
         "{}",
@@ -50,11 +50,10 @@ pub fn compile(
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
     if output.status.success() {
-        Ok(stdout)
+        Ok((stdout, output_path))
     } else {
         Err(stdout)
     }
 }
 
 // pub fn run(path: PathBuf) -> Result<String, String> {}
-//

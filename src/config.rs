@@ -4,8 +4,8 @@ use serde::Serialize;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-    pub jvm: PathBuf,
-    pub javac: PathBuf,
+    pub jvm_path: PathBuf,
+    pub javac_path: PathBuf,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
