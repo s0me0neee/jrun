@@ -12,6 +12,7 @@ use crate::{
     },
 };
 mod config;
+mod diagnostics;
 mod file;
 mod java;
 mod log;
@@ -136,7 +137,7 @@ async fn main() {
     let (out_msg, out_dir) =
         java::compile(&toolchain, target_path, output_path).unwrap_or_else(|e| {
             eprintln!("{}", error!("Compile failed:"));
-            eprintln!("{}", pretty::colorize_compile_error(e.trim_end()));
+            diagnostics::render_javac_errors(&e);
             exit(1);
         });
     let compile_elapsed = compile_start.elapsed();
