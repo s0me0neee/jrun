@@ -29,6 +29,10 @@ cargo run -- --jvm 17 <file.java>               # config javac, explicit jvm
 # Override output directory for .class files
 cargo run -- --output <dir> <file.java>
 
+# Enable all warnings and treat them as errors (-Xlint:all -Werror)
+cargo run -- -W <file.java>
+cargo run -- --wall <file.java>
+
 # Persist the selected toolchain as the new default
 cargo run -- --javac 21 --set-default
 
@@ -65,7 +69,15 @@ Both use `serde_json` for I/O; no schema migration exists yet.
 
 ### Compilation and execution (`src/java.rs`)
 
-`compile(&toolchain, path, outpath)` invokes `javac` via `duct::cmd!`. Output defaults to a `build/` subdirectory next to the source file. `run(jvm, class_dir, class_name)` invokes the JVM with `-cp <class_dir> <class_name>`; the class name is derived from the source filename stem.
+`compile(&toolchain, path, outpath, wall)` invokes `javac` via `duct::cmd!`. Output defaults to a `build/` subdirectory next to the source file. When `wall` is true, adds `-Xlint:all -Werror` flags. `run(jvm, class_dir, class_name)` is `async` (tokio), invokes the JVM with `-cp <class_dir> <class_name>`, streams stdout/stderr live, and returns the wall-clock `Duration` on success. Runtime stderr is passed through `pretty::colorize_runtime_stderr`.
+
+### Diagnostics (`src/diagnostics.rs`)
+
+`render_javac_errors(output)` parses raw javac stderr and renders each diagnostic using `ariadne` — with source snippets, span highlighting, and relative file paths. Supported severities: error, warning, note. Ends with a rustc-style summary line (`error: aborting due to N previous errors[; M warnings]`).
+
+### Runtime output colorization (`src/pretty.rs`)
+
+`colorize_runtime_stderr(output)` colorizes JVM exception output line-by-line: exception headers are bold red, stack frames are cyan/yellow, "... N more" lines are dimmed.
 
 ### File validation (`src/file.rs`)
 
@@ -78,3 +90,4 @@ Three macros — `error!`, `warning!`, `info!` — that format colored terminal 
 ## Known limitations
 
 - Class name for `java::run` is derived from the source filename stem. Java requires the public class name to match the filename, so this works for standard files but not for packages or multi-class files where the entry point differs from the filename.
+- `java::run` captures all stdout/stderr after the process exits rather than streaming live — output appears in one block at the end.
