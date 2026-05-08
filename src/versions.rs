@@ -1,10 +1,9 @@
 use duct::cmd;
 use owo_colors::OwoColorize;
 use std::collections::BTreeMap;
-use std::process;
+use std::path::PathBuf;
 
 use crate::java::{Javac, Jvm};
-use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct Toolchain {
@@ -14,13 +13,16 @@ pub struct Toolchain {
 
 pub fn get_tool_info(path: PathBuf) -> Option<(String, String)> {
     let version_output = cmd!(&path, "--version").read().ok()?;
-    let version = version_output
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))?
-        .to_string();
+    let first_line = version_output.lines().next()?;
+    let tokens: Vec<&str> = first_line.split_whitespace().collect();
+    // Java 9+: "java 21.0.2"           → tokens[1]
+    // Java 8:  "java version \"1.8.0\"" → tokens[2], strip surrounding quotes
+    let raw = match tokens.get(1)? {
+        &"version" => tokens.get(2)?.trim_matches('"'),
+        v => v,
+    };
     let path_str = path.into_os_string().into_string().ok()?;
-    Some((version, path_str))
+    Some((raw.to_string(), path_str))
 }
 
 fn find_tool(tool: &str) -> Vec<(String, String)> {
@@ -31,27 +33,29 @@ fn find_tool(tool: &str) -> Vec<(String, String)> {
 }
 
 pub fn find_jvm() -> Result<Vec<Jvm>, String> {
-    find_tool("java")
+    Ok(find_tool("java")
         .into_iter()
-        .map(|(version, path)| {
-            Ok(Jvm {
-                version: version.into(),
-                path: path.into(),
-            })
-        })
-        .collect()
+        .map(|(version, path)| Jvm { version: version.into(), path: path.into() })
+        .collect())
 }
 
 pub fn find_javac() -> Result<Vec<Javac>, String> {
-    find_tool("javac")
+    Ok(find_tool("javac")
         .into_iter()
-        .map(|(version, path)| {
-            Ok(Javac {
-                version: version.into(),
-                path: path.into(),
-            })
-        })
-        .collect()
+        .map(|(version, path)| Javac { version: version.into(), path: path.into() })
+        .collect())
+}
+
+pub fn find_one_jvm(jvms: &[Jvm], query: &str) -> Result<Jvm, String> {
+    resolve(jvms, query, |j| &j.version, |j| &j.path)
+        .cloned()
+        .ok_or_else(|| format!("No JVM matching '{}' (is it in PATH?)", query))
+}
+
+pub fn find_one_javac(javacs: &[Javac], query: &str) -> Result<Javac, String> {
+    resolve(javacs, query, |j| &j.version, |j| &j.path)
+        .cloned()
+        .ok_or_else(|| format!("No JavaC matching '{}' (is it in PATH?)", query))
 }
 
 pub fn list_available() -> Result<(), String> {
@@ -60,18 +64,11 @@ pub fn list_available() -> Result<(), String> {
 
     println!("{}", crate::info!("Version", "JVM versions:"));
     print_grouped(
-        &jvms
-            .iter()
-            .map(|j| (j.version.as_ref(), j.path.as_ref()))
-            .collect::<Vec<_>>(),
+        &jvms.iter().map(|j| (j.version.as_ref(), j.path.as_ref())).collect::<Vec<_>>(),
     );
-
     println!("\n{}", crate::info!("Version", "JavaC versions:"));
     print_grouped(
-        &javacs
-            .iter()
-            .map(|j| (j.version.as_ref(), j.path.as_ref()))
-            .collect::<Vec<_>>(),
+        &javacs.iter().map(|j| (j.version.as_ref(), j.path.as_ref())).collect::<Vec<_>>(),
     );
     Ok(())
 }
@@ -99,42 +96,12 @@ fn resolve<'a, T>(
     get_v: impl Fn(&'a T) -> &str,
     get_p: impl Fn(&'a T) -> &str,
 ) -> Option<&'a T> {
+    // Exact path match first, then version prefix match (e.g. "21" matches "21.0.2")
     entries.iter().find(|e| get_p(e) == query).or_else(|| {
         entries.iter().find(|e| {
             let v = get_v(e);
             v == query
-                || (v.starts_with(query)
-                    && v.as_bytes().get(query.len()) == Some(&b'.'))
+                || (v.starts_with(query) && v.as_bytes().get(query.len()) == Some(&b'.'))
         })
-    })
-}
-
-pub fn query(
-    jvms: &[Jvm],
-    javacs: &[Javac],
-    javac_query: &str,
-    jvm_query: Option<&str>,
-) -> Result<Toolchain, String> {
-    let jvm_query = jvm_query.unwrap_or(javac_query);
-
-    let jvm = resolve(jvms, jvm_query, |j| &j.version, |j| &j.path)
-        .ok_or_else(|| {
-            format!(
-                "No JVM found matching '{}' is the executable in PATH?",
-                jvm_query
-            )
-        })?;
-
-    let javac = resolve(javacs, javac_query, |j| &j.version, |j| &j.path)
-        .ok_or_else(|| {
-            format!(
-                "No JavaC found matching '{}' is the executable in PATH?",
-                javac_query
-            )
-        })?;
-
-    Ok(Toolchain {
-        jvm: jvm.clone(),
-        javac: javac.clone(),
     })
 }

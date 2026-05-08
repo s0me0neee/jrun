@@ -1,16 +1,12 @@
 use clap::Parser;
 use owo_colors::OwoColorize;
-use std::{
-    path::{Path, PathBuf},
-    process::exit,
-};
-use which::{which, which_global};
+use std::{path::PathBuf, process::exit};
+use which::which_global;
 
 use crate::{
     config::{Config, Setting},
-    versions::{
-        Toolchain, find_javac, find_jvm, get_tool_info, list_available, query,
-    },
+    java::{Javac, Jvm},
+    versions::{find_javac, find_jvm, find_one_javac, find_one_jvm, get_tool_info, list_available, Toolchain},
 };
 mod config;
 mod file;
@@ -21,213 +17,175 @@ mod versions;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, value_name = "Output path")]
-    output: Option<String>,
-
-    #[arg(short, long, value_names = ["Compiler", "Jvm"], num_args = 2)]
-    toolchain: Option<Vec<String>>,
-
+    /// Java source file to compile and run
     #[arg(required_unless_present_any = ["list", "set_default"])]
     file: Option<String>,
 
-    #[arg(short, long, help = "List all available java versions")]
+    /// Output directory for compiled .class files
+    #[arg(short, long, value_name = "DIR")]
+    output: Option<String>,
+
+    /// JavaC version or path to use (e.g. "21", "21.0.2", "/usr/bin/javac")
+    #[arg(long, value_name = "VERSION_OR_PATH")]
+    javac: Option<String>,
+
+    /// JVM version or path to use; defaults to --javac value if not set
+    #[arg(long, value_name = "VERSION_OR_PATH")]
+    jvm: Option<String>,
+
+    /// List all detected Java/JavaC installations
+    #[arg(short, long)]
     list: bool,
 
-    #[arg(short, long, value_names = ["Compiler", "Jvm"], num_args = 2, help = "Set the default version (e.g. --set-default javac 21)")]
-    set_default: Option<Vec<String>>,
+    /// Persist the selected toolchain as the new default
+    #[arg(short = 'd', long)]
+    set_default: bool,
 }
 
 fn main() {
     setup_log();
     let args = Args::parse();
 
-    let config_path = match setting_init() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("{}", error!("{}", e));
-            exit(1);
-        }
-    };
+    let config_path = setting_init().unwrap_or_else(|e| {
+        eprintln!("{}", error!("{}", e));
+        exit(1);
+    });
 
-    let config = match config_init(config_path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("{}", error!("{}", e));
-            exit(1);
-        }
-    };
+    let config = config_init(&config_path).unwrap_or_else(|e| {
+        eprintln!("{}", error!("{}", e));
+        exit(1);
+    });
 
     if args.list {
-        match list_available() {
-            Ok(_) => {
-                return;
-            }
-            Err(e) => {
-                println!("{}", error!(e))
-            }
+        if let Err(e) = list_available() {
+            eprintln!("{}", error!("{}", e));
+        }
+        if args.file.is_none() && !args.set_default {
+            return;
         }
     }
 
-    let input_file = match args.file {
+    let toolchain = build_toolchain(&args, &config).unwrap_or_else(|e| {
+        eprintln!("{}", error!("{}", e));
+        exit(1);
+    });
+
+    if args.set_default {
+        let new_config = Config {
+            jvm_path: PathBuf::from(toolchain.jvm.path.as_ref()),
+            javac_path: PathBuf::from(toolchain.javac.path.as_ref()),
+        };
+        if let Err(e) = new_config.write(&config_path) {
+            eprintln!("{}", error!("Failed to save default: {}", e));
+            exit(1);
+        }
+        println!("{}", info!("Config", "saved default toolchain:"));
+        println!("  JVM:   {} — {}", toolchain.jvm.version, toolchain.jvm.path);
+        println!("  JavaC: {} — {}", toolchain.javac.version, toolchain.javac.path);
+        if args.file.is_none() {
+            return;
+        }
+    }
+
+    let file = match args.file {
         Some(f) => f,
-        None => {
-            if args.list
-                || args.set_default.is_some()
-                || args.toolchain.is_some()
-            {
-                return;
-            }
-            eprintln!("{}", error!("No file specified"));
-            std::process::exit(1);
-        }
+        None => return,
     };
 
-    let target_path = match file::validate_file(PathBuf::from(&input_file)) {
-        Ok(p) => p,
-        Err(e) => {
-            let epath = &input_file;
-            eprintln!("{}", error!("{} for target: {}", e, epath));
-            std::process::exit(1);
-        }
-    };
-
-    let jvms = find_jvm().unwrap_or_else(|e| {
-        eprintln!("{}", error!(e));
-        exit(1);
-    });
-    let javacs = find_javac().unwrap_or_else(|e| {
-        eprintln!("{}", error!(e));
+    let target_path = file::validate_file(PathBuf::from(&file)).unwrap_or_else(|e| {
+        eprintln!("{}", error!("{}: {}", e, file));
         exit(1);
     });
 
-    //TODO: logic not completed yet.
-    if let Some(ref input_version) = args.set_default {
-        if input_version.len() != 2 {
-            eprintln!(
-                "{}",
-                error!("Set default must be 2 values (compiler, jvm)")
-            );
-            std::process::exit(1);
-        }
-        let toolchain =
-            query(&jvms, &javacs, &input_version[0], Some(&input_version[1]))
-                .unwrap_or_else(|e| {
-                    eprintln!("{}", error!(e));
-                    exit(1);
-                });
-        println!("{}", crate::info!("Toolchain", "set default to:"));
-        println!(
-            "  JVM:   {} — {}",
-            toolchain.jvm.version, toolchain.jvm.path
-        );
-        println!(
-            "  JavaC: {} — {}",
-            toolchain.javac.version, toolchain.javac.path
-        );
-        return;
-    }
-
-    let current_toolchain = if let Some(ref input_version) = args.toolchain {
-        if input_version.len() != 2 {
-            eprintln!(
-                "{}",
-                error!("Toolchain must be 2 values (compiler, jvm)")
-            );
-            std::process::exit(1);
-        }
-        query(&jvms, &javacs, &input_version[0], Some(&input_version[1]))
-            .unwrap_or_else(|e| {
-                eprintln!("{}", error!(e));
-                exit(1);
-            })
-    } else {
-        dbg!(&config);
-        let (jvm_version, jvm_path) = get_tool_info(config.jvm_path.clone())
-            .unwrap_or_else(|| {
-                eprintln!(
-                    "{}",
-                    error!(
-                        "Could not get JVM info from config path: {:?}",
-                        config.jvm_path
-                    )
-                );
-                exit(1);
-            });
-        let (javac_version, javac_path) =
-            get_tool_info(config.javac_path.clone()).unwrap_or_else(|| {
-                eprintln!(
-                    "{}",
-                    error!(
-                        "Could not get JavaC info from config path: {:?}",
-                        config.javac_path
-                    )
-                );
-                exit(1);
-            });
-
-        Toolchain {
-            jvm: crate::java::Jvm {
-                version: jvm_version.into(),
-                path: jvm_path.into(),
-            },
-            javac: crate::java::Javac {
-                version: javac_version.into(),
-                path: javac_path.into(),
-            },
-        }
-    };
-
-    if args.list {
-        println!("{}", crate::info!("Toolchain", "using:"));
-        println!(
-            "  JVM:   {} — {}",
-            current_toolchain.jvm.version, current_toolchain.jvm.path
-        );
-        println!(
-            "  JavaC: {} — {}",
-            current_toolchain.javac.version, current_toolchain.javac.path
-        );
-    }
+    let class_name = target_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or_else(|| {
+            eprintln!("{}", error!("Cannot determine class name from file path"));
+            exit(1);
+        })
+        .to_string();
 
     let output_path = args.output.map(PathBuf::from);
-    match java::compile(current_toolchain, target_path, output_path) {
-        Ok(i) => {
-            println!("{}", info!("Compile", "Success {}", i.0));
-            println!("{}", info!("Compile", "Out: {}", i.1.display()))
-        }
+
+    let (out_msg, out_dir) =
+        java::compile(&toolchain, target_path, output_path).unwrap_or_else(|e| {
+            eprintln!("{}", error!("Compile failed:\n{}", e));
+            exit(1);
+        });
+
+    if !out_msg.is_empty() {
+        print!("{}", out_msg);
+    }
+    println!("{}", info!("Compile", "success → {}", out_dir.display()));
+
+    match java::run(&toolchain.jvm, &out_dir, &class_name) {
+        Ok(output) => print!("{}", output),
         Err(e) => {
-            eprintln!("{}", error!("Compile failed: {}", e));
-            std::process::exit(1);
+            eprintln!("{}", error!("Run failed:\n{}", e));
+            exit(1);
         }
     }
 }
 
-fn setup_log() -> String {
-    let result = match dotenvy::dotenv() {
-        Ok(o) => {
-            format!(
-                "{}\n",
-                info!(
-                    "Env",
-                    "loaded env: {}",
-                    std::path::absolute(o)
-                        .expect("Env path dosen't exist")
-                        .display()
-                )
-            )
+/// Resolves the toolchain from CLI args, falling back to config where not specified.
+///
+/// - `--javac X --jvm Y`: use X for javac, Y for jvm
+/// - `--javac X` only:    use X for both javac and jvm
+/// - `--jvm Y` only:      use Y for jvm, config default for javac
+/// - neither:             use config defaults for both
+fn build_toolchain(args: &Args, config: &Config) -> Result<Toolchain, String> {
+    if args.javac.is_none() && args.jvm.is_none() {
+        return toolchain_from_config(config);
+    }
+
+    let jvms = find_jvm()?;
+    let javacs = find_javac()?;
+
+    let javac = match &args.javac {
+        Some(q) => find_one_javac(&javacs, q)?,
+        None => {
+            // --jvm set but not --javac: keep the config javac unchanged
+            get_tool_info(config.javac_path.clone())
+                .map(|(ver, path)| Javac { version: ver.into(), path: path.into() })
+                .ok_or_else(|| format!("Cannot read JavaC at {:?}", config.javac_path))?
         }
-        Err(e) => error!(e).to_string(),
     };
+
+    let jvm = match &args.jvm {
+        Some(q) => find_one_jvm(&jvms, q)?,
+        None => {
+            // --javac set but not --jvm: use the same query for jvm
+            find_one_jvm(&jvms, args.javac.as_deref().unwrap())?
+        }
+    };
+
+    Ok(Toolchain { jvm, javac })
+}
+
+fn toolchain_from_config(config: &Config) -> Result<Toolchain, String> {
+    let (jvm_ver, jvm_path) = get_tool_info(config.jvm_path.clone())
+        .ok_or_else(|| format!("Cannot read JVM at {:?}", config.jvm_path))?;
+    let (javac_ver, javac_path) = get_tool_info(config.javac_path.clone())
+        .ok_or_else(|| format!("Cannot read JavaC at {:?}", config.javac_path))?;
+    Ok(Toolchain {
+        jvm: Jvm { version: jvm_ver.into(), path: jvm_path.into() },
+        javac: Javac { version: javac_ver.into(), path: javac_path.into() },
+    })
+}
+
+fn setup_log() {
+    // .env is optional; silently ignore if missing
+    let _ = dotenvy::dotenv();
     env_logger::init();
-    result
 }
 
 fn setting_init() -> Result<PathBuf, String> {
     let setting_path = default_setting_path!();
 
     if setting_path.exists() {
-        let setting = Setting::read()
-            .map_err(|e| format!("Failed to read existing setting: {}", e))?;
+        let setting =
+            Setting::read().map_err(|e| format!("Failed to read setting: {}", e))?;
         if !setting.config_path.exists()
             && let Some(parent) = setting.config_path.parent()
         {
@@ -237,36 +195,27 @@ fn setting_init() -> Result<PathBuf, String> {
     }
 
     let def_config_path = default_config_path!();
-    let def_setting = Setting {
-        config_path: def_config_path.clone(),
-    };
-
     if let Some(parent) = setting_path.parent()
         && !parent.exists()
     {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-
-    Setting::write(def_setting).map_err(|e| e.to_string())?;
+    Setting::write(Setting { config_path: def_config_path.clone() })
+        .map_err(|e| e.to_string())?;
     Ok(def_config_path)
 }
 
-fn config_init(config_path: PathBuf) -> Result<Config, String> {
+fn config_init(config_path: &PathBuf) -> Result<Config, String> {
     if config_path.exists() {
-        dbg!(&config_path);
-        return Config::read(&config_path);
+        return Config::read(config_path);
     }
 
-    let def_c = which::which_global("javac")
+    let javac_path = which_global("javac")
         .map_err(|_| "Could not find 'javac' in PATH".to_string())?;
-    let def_jvm = which::which_global("java")
+    let jvm_path = which_global("java")
         .map_err(|_| "Could not find 'java' in PATH".to_string())?;
 
-    let def_config = Config {
-        jvm_path: def_jvm,
-        javac_path: def_c,
-    };
-
-    def_config.write(&config_path)?;
-    Ok(def_config)
+    let config = Config { jvm_path, javac_path };
+    config.write(config_path)?;
+    Ok(config)
 }
