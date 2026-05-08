@@ -2,7 +2,14 @@
 name = "jrun"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/s0me0neee/jrun"
+authors = ["s0me0neee"]
 
+[package.metadata.wix]
+upgrade-guid = "D1E8FD0B-692F-4C60-8BCF-552A339F18D9"
+path-guid = "65AEBBB5-AAE2-4DA4-8719-9E20A2C04890"
+license = false
+eula = false
 [dependencies]
 owo-colors = "4.2.3"
 clap = { version = "4.5.49", features = ["derive"] }
@@ -14,5 +21,15 @@ env_logger = "0.11"
 dirs = "6.0.0"
 which = "8.0.2"
 dotenvy = "0.15.7"
-tokio = { version = "1", features = ["rt-multi-thread", "process", "macros", "time"] }
+tokio = { version = "1", features = [
+	"rt-multi-thread",
+	"process",
+	"macros",
+	"time",
+] }
 ariadne = "0.6"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
