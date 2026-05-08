@@ -42,7 +42,7 @@ jrun --javac 21 --set-default
 
 **Successful run with runtime exception:**
 
-```
+``` bash
 $ jrun --javac 25 --jvm 25 -W test/StackTraceTest.java
 [Compile] using javac 25.0.2
 [Compile] success → test/build (247.3ms)
@@ -61,7 +61,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<local0
 
 **Compile error with source diagnostics:**
 
-```
+``` bash
 $ jrun --javac 25 --jvm 25 -W test/ErrorTest.java
 [Compile] using javac 25.0.2
 Error: ';' expected
@@ -79,6 +79,7 @@ Error: ';' expected
     │                         ╰── ';' expected
 ────╯
 error: aborting due to 2 previous errors
+
 ```
 
 ## How it works
@@ -86,6 +87,7 @@ error: aborting due to 2 previous errors
 On first run, jrun detects the default `java` and `javac` from `$PATH` and writes them to a config file at `~/.config/jrun/config.json`. Subsequent runs read that config so version discovery is skipped unless `--javac` or `--jvm` is passed.
 
 When a version flag is given, jrun scans every `java`/`javac` on `$PATH` and matches by:
+
 1. Exact path (e.g. `/usr/bin/javac`)
 2. Exact version string (e.g. `21.0.2`)
 3. Version prefix (e.g. `21` matches `21.0.2`)
