@@ -45,6 +45,10 @@ struct Args {
     /// Persist the selected toolchain as the new default
     #[arg(short = 'd', long)]
     set_default: bool,
+
+    /// Enable all warnings and treat them as errors (-Xlint:all -Werror)
+    #[arg(short = 'W', long = "wall")]
+    wall: bool,
 }
 
 #[tokio::main]
@@ -135,7 +139,7 @@ async fn main() {
 
     let compile_start = std::time::Instant::now();
     let (out_msg, out_dir) =
-        java::compile(&toolchain, target_path, output_path).unwrap_or_else(|e| {
+        java::compile(&toolchain, target_path, output_path, args.wall).unwrap_or_else(|e| {
             eprintln!("{}", error!("Compile failed:"));
             diagnostics::render_javac_errors(&e);
             exit(1);

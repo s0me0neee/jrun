@@ -24,6 +24,7 @@ pub fn compile(
     toolchain: &Toolchain,
     path: PathBuf,
     outpath: Option<PathBuf>,
+    wall: bool,
 ) -> Result<(String, PathBuf), String> {
     let javac = &toolchain.javac;
     println!("{}", info!("Compile", "using javac {}", &javac.version));
@@ -38,7 +39,13 @@ pub fn compile(
         std::fs::create_dir_all(&output_path).map_err(|e| e.to_string())?;
     }
 
-    let output = cmd!(javac.path.as_ref(), "-d", &output_path, &path)
+    let expr = if wall {
+        cmd!(javac.path.as_ref(), "-d", &output_path, &path, "-Xlint:all", "-Werror")
+    } else {
+        cmd!(javac.path.as_ref(), "-d", &output_path, &path)
+    };
+
+    let output = expr
         .stderr_to_stdout()
         .stdout_capture()
         .unchecked()
