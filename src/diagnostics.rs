@@ -1,4 +1,5 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
+use owo_colors::OwoColorize;
 
 enum Severity {
     Error,
@@ -16,11 +17,37 @@ struct Diagnostic {
     details: Vec<String>,
 }
 
-/// Parses javac output and renders each diagnostic via ariadne to stderr.
+/// Parses javac output and renders each diagnostic via ariadne to stderr,
+/// followed by a rustc-style summary line.
 pub fn render_javac_errors(output: &str) {
-    for diag in parse(output) {
-        print_diagnostic(&diag);
+    let diagnostics = parse(output);
+
+    let errors: usize = diagnostics.iter().filter(|d| matches!(d.severity, Severity::Error)).count();
+    let warnings: usize = diagnostics.iter().filter(|d| matches!(d.severity, Severity::Warning)).count();
+
+    for diag in &diagnostics {
+        print_diagnostic(diag);
     }
+
+    print_summary(errors, warnings);
+}
+
+fn print_summary(errors: usize, warnings: usize) {
+    if errors == 0 && warnings == 0 {
+        return;
+    }
+
+    // Build the "aborting due to N previous error(s)[; N warning(s)]" line
+    let mut parts = Vec::new();
+    if errors > 0 {
+        parts.push(format!("{} previous {}", errors, if errors == 1 { "error" } else { "errors" }));
+    }
+    if warnings > 0 {
+        parts.push(format!("{} previous {}", warnings, if warnings == 1 { "warning" } else { "warnings" }));
+    }
+
+    let msg = format!("aborting due to {}", parts.join("; "));
+    eprintln!("{}", format!("error: {}", msg).red().bold());
 }
 
 // ── Parser ────────────────────────────────────────────────────────────────────
