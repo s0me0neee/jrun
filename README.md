@@ -6,7 +6,7 @@ It discovers all `java`/`javac` installations on your system and lets you target
 
 ## Screen Shot
 
-![image](./doc/Screenshot%202026-05-08%20at%2012.07.14%20PM.png)
+![image](./doc/screenshot.png)
 
 ## Install
 
