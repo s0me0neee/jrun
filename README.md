@@ -8,6 +8,8 @@ It discovers all `java`/`javac` installations on your system and lets you target
 
 ![image](./doc/screenshot.png)
 
+![image](./doc/screenshot2.png)
+
 ## Install
 
 ```bash
