@@ -116,7 +116,6 @@ fn print_diagnostic(diag: &Diagnostic) {
     let source = match std::fs::read_to_string(&diag.file) {
         Ok(s) => s,
         Err(_) => {
-            // Can't read source — fall back to plain text
             eprintln!("{}:{}: {}", diag.file, diag.line, diag.message);
             return;
         }
@@ -124,7 +123,14 @@ fn print_diagnostic(diag: &Diagnostic) {
 
     let start = byte_offset(&source, diag.line, diag.col);
     let end = (start + diag.span_len).min(source.len());
-    let file_id = diag.file.as_str();
+
+    // Show path relative to cwd so diagnostics read as "Foo.java:4" not "/abs/path/Foo.java:4"
+    let rel = std::env::current_dir()
+        .ok()
+        .and_then(|cwd| std::path::Path::new(&diag.file).strip_prefix(&cwd).ok()
+            .map(|p| p.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| diag.file.clone());
+    let file_id = rel.as_str();
 
     let (kind, color) = match diag.severity {
         Severity::Error => (ReportKind::Error, Color::Red),
