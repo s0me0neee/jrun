@@ -90,6 +90,18 @@ fn print_grouped(entries: &[(&str, &str)]) {
     }
 }
 
+/// Extracts the Java major version number from a version string.
+/// Handles both modern format ("21.0.2" → 21) and legacy Java 8 format ("1.8.0_301" → 8).
+pub fn java_major_version(version: &str) -> Option<u32> {
+    let first: u32 = version.split('.').next()?.parse().ok()?;
+    if first == 1 {
+        // Legacy "1.x.y" format used by Java 8 and below
+        version.split('.').nth(1)?.parse().ok()
+    } else {
+        Some(first)
+    }
+}
+
 fn resolve<'a, T>(
     entries: &'a [T],
     query: &str,

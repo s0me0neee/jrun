@@ -6,7 +6,10 @@ use which::which_global;
 use crate::{
     config::{Config, Setting},
     java::{Javac, Jvm},
-    versions::{find_javac, find_jvm, find_one_javac, find_one_jvm, get_tool_info, list_available, Toolchain},
+    versions::{
+        find_javac, find_jvm, find_one_javac, find_one_jvm, get_tool_info,
+        java_major_version, list_available, Toolchain,
+    },
 };
 mod config;
 mod file;
@@ -108,6 +111,25 @@ async fn main() {
         .to_string();
 
     let output_path = args.output.map(PathBuf::from);
+
+    if let (Some(javac_v), Some(jvm_v)) = (
+        java_major_version(&toolchain.javac.version),
+        java_major_version(&toolchain.jvm.version),
+    ) {
+        if javac_v > jvm_v {
+            eprintln!(
+                "{}",
+                warning!(
+                    "JavaC {} compiles to class file version {} which JVM {} cannot run \
+                     — upgrade the JVM to {} or higher to avoid UnsupportedClassVersionError",
+                    toolchain.javac.version,
+                    javac_v,
+                    toolchain.jvm.version,
+                    javac_v
+                )
+            );
+        }
+    }
 
     let compile_start = std::time::Instant::now();
     let (out_msg, out_dir) =
