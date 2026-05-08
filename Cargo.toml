@@ -2,8 +2,10 @@
 name = "jrun"
 version = "0.1.0"
 edition = "2024"
+description = "Compile and run a Java source file in one command"
 repository = "https://github.com/s0me0neee/jrun"
 authors = ["s0me0neee"]
+license = "MIT"
 
 [package.metadata.wix]
 upgrade-guid = "D1E8FD0B-692F-4C60-8BCF-552A339F18D9"
