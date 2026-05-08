@@ -4,6 +4,10 @@ A fast CLI tool that compiles and runs a Java source file in one command. Aimed 
 
 It discovers all `java`/`javac` installations on your system and lets you target a specific version without touching environment variables. Compile errors are rendered with source snippets and span highlighting (via [ariadne](https://github.com/zesterer/ariadne)), and runtime exceptions are colorized for quick scanning.
 
+## Screen Shot
+
+![image](./doc/Screenshot%202026-05-08%20at%2012.07.14%20PM.png)
+
 ## Install
 
 ```bash
@@ -14,35 +18,35 @@ cargo install --path .
 
 ```bash
 # Compile and run a file with the default toolchain
-jrun Main.java
+$ jrun Main.java
 
 # Use a specific Java version (prefix match: "21" matches "21.0.2")
-jrun --javac 21 Main.java
+$ jrun --javac 21 Main.java
 
 # Use different versions for compiler and runtime
-jrun --javac 21 --jvm 17 Main.java
+$ jrun --javac 21 --jvm 17 Main.java
 
 # Use an exact path
-jrun --javac /opt/homebrew/opt/openjdk@21/bin/javac Main.java
+$ jrun --javac /opt/homebrew/opt/openjdk@21/bin/javac Main.java
 
 # Override the output directory for .class files (default: ./build)
-jrun --output /tmp/classes Main.java
+$ jrun --output /tmp/classes Main.java
 
 # Enable all warnings and treat them as errors (-Xlint:all -Werror)
-jrun -W Main.java
+$ jrun -W Main.java
 
 # List all detected installations
-jrun --list
+$ jrun --list
 
 # Save a toolchain selection as the new default
-jrun --javac 21 --set-default
+$ jrun --javac 21 --set-default
 ```
 
 ## Examples
 
 **Successful run with runtime exception:**
 
-``` bash
+```bash
 $ jrun --javac 25 --jvm 25 -W test/StackTraceTest.java
 [Compile] using javac 25.0.2
 [Compile] success → test/build (247.3ms)
@@ -61,7 +65,7 @@ java.lang.NullPointerException: Cannot invoke "String.length()" because "<local0
 
 **Compile error with source diagnostics:**
 
-``` bash
+```bash
 $ jrun --javac 25 --jvm 25 -W test/ErrorTest.java
 [Compile] using javac 25.0.2
 Error: ';' expected
@@ -98,10 +102,10 @@ If the selected `javac` version is higher than the selected JVM version, jrun wa
 
 ## Config files
 
-| File | Purpose |
-|------|---------|
-| `~/.config/jrun/setting.json` | Points to the config file location |
-| `~/.config/jrun/config.json` | Stores the default `java` and `javac` paths |
+| File                          | Purpose                                     |
+| ----------------------------- | ------------------------------------------- |
+| `~/.config/jrun/setting.json` | Points to the config file location          |
+| `~/.config/jrun/config.json`  | Stores the default `java` and `javac` paths |
 
 To reset to PATH defaults, delete `config.json` and run any `jrun` command.
 
