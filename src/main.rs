@@ -42,7 +42,8 @@ struct Args {
     set_default: bool,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     setup_log();
     let args = Args::parse();
 
@@ -108,23 +109,39 @@ fn main() {
 
     let output_path = args.output.map(PathBuf::from);
 
+    let compile_start = std::time::Instant::now();
     let (out_msg, out_dir) =
         java::compile(&toolchain, target_path, output_path).unwrap_or_else(|e| {
             eprintln!("{}", error!("Compile failed:\n{}", e));
             exit(1);
         });
+    let compile_elapsed = compile_start.elapsed();
 
     if !out_msg.is_empty() {
         print!("{}", out_msg);
     }
-    println!("{}", info!("Compile", "success → {}", out_dir.display()));
+    println!(
+        "{}",
+        info!("Compile", "success → {} ({})", out_dir.display(), fmt_duration(compile_elapsed))
+    );
 
-    match java::run(&toolchain.jvm, &out_dir, &class_name) {
-        Ok(output) => print!("{}", output),
+    match java::run(&toolchain.jvm, &out_dir, &class_name).await {
+        Ok(elapsed) => {
+            println!("{}", info!("Run", "finished in {}", fmt_duration(elapsed)));
+        }
         Err(e) => {
-            eprintln!("{}", error!("Run failed:\n{}", e));
+            eprintln!("{}", error!("Run failed: {}", e));
             exit(1);
         }
+    }
+}
+
+fn fmt_duration(d: std::time::Duration) -> String {
+    let ms = d.as_secs_f64() * 1000.0;
+    if ms < 1000.0 {
+        format!("{:.1}ms", ms)
+    } else {
+        format!("{:.3}s", d.as_secs_f64())
     }
 }
 

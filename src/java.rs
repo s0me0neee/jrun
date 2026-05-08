@@ -15,7 +15,10 @@ pub struct Javac {
 use crate::{info, versions::Toolchain};
 use duct::cmd;
 use owo_colors::OwoColorize;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 pub fn compile(
     toolchain: &Toolchain,
@@ -50,20 +53,24 @@ pub fn compile(
     }
 }
 
-pub fn run(jvm: &Jvm, class_dir: &Path, class_name: &str) -> Result<String, String> {
+/// Runs the compiled class, streaming stdout/stderr live to the terminal.
+/// Returns the wall-clock duration of the process on success.
+pub async fn run(jvm: &Jvm, class_dir: &Path, class_name: &str) -> Result<Duration, String> {
     println!("{}", info!("Run", "using jvm {}", &jvm.version));
 
-    let output = cmd!(jvm.path.as_ref(), "-cp", class_dir, class_name)
-        .stderr_to_stdout()
-        .stdout_capture()
-        .unchecked()
-        .run()
+    let start = tokio::time::Instant::now();
+
+    let status = tokio::process::Command::new(jvm.path.as_ref())
+        .args(["-cp", &class_dir.to_string_lossy(), class_name])
+        .status()
+        .await
         .map_err(|e| e.to_string())?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    if output.status.success() {
-        Ok(stdout)
+    let elapsed = start.elapsed();
+
+    if status.success() {
+        Ok(elapsed)
     } else {
-        Err(stdout)
+        Err(format!("process exited with {}", status))
     }
 }
