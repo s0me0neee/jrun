@@ -4,7 +4,7 @@ use std::path::{self, PathBuf};
 macro_rules! default_setting_path {
     () => {{
         let mut p = dirs::config_dir().expect("Can't get config path for your system");
-        p.push("jrun2");
+        p.push("jrun");
         p.push("setting.json");
         p
     }};
@@ -14,7 +14,7 @@ macro_rules! default_setting_path {
 macro_rules! default_config_path {
     () => {{
         let mut p = dirs::config_dir().expect("Can't get config path for your system");
-        p.push("jrun2");
+        p.push("jrun");
         p.push("config.json");
         p
     }};

@@ -255,7 +255,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jrun2"
+name = "jrun"
 version = "0.1.0"
 dependencies = [
  "ariadne",

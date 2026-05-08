@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`jrun2` is a CLI tool written in Rust that compiles and runs Java source files. It discovers all `java`/`javac` installations on the system, lets the user pick a specific toolchain version, and delegates compilation to `javac` via the `duct` crate.
+`jrun` is a CLI tool written in Rust that compiles and runs Java source files. It discovers all `java`/`javac` installations on the system, lets the user pick a specific toolchain version, and delegates compilation to `javac` via the `duct` crate.
 
 ## Commands
 
@@ -50,7 +50,7 @@ cargo clippy
 ### Entry point and startup (`src/main.rs`)
 
 `main()` runs two initialization steps before doing any work:
-1. **`setting_init()`** — reads or creates `setting.json` (via `default_setting_path!()` macro → `~/.config/jrun2/setting.json` on Linux/macOS). `Setting` holds only one field: the path to `config.json`.
+1. **`setting_init()`** — reads or creates `setting.json` (via `default_setting_path!()` macro → `~/.config/jrun/setting.json` on Linux/macOS). `Setting` holds only one field: the path to `config.json`.
 2. **`config_init(path)`** — reads or creates `config.json` at the path from `setting.json`. `Config` stores the resolved paths to the default `java` and `javac` executables (detected from `$PATH` on first run via `which`).
 
 ### Config layer (`src/config.rs`)
