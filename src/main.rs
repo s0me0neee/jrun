@@ -15,6 +15,7 @@ mod config;
 mod file;
 mod java;
 mod log;
+mod pretty;
 mod versions;
 
 #[derive(Parser, Debug)]
@@ -134,7 +135,8 @@ async fn main() {
     let compile_start = std::time::Instant::now();
     let (out_msg, out_dir) =
         java::compile(&toolchain, target_path, output_path).unwrap_or_else(|e| {
-            eprintln!("{}", error!("Compile failed:\n{}", e));
+            eprintln!("{}", error!("Compile failed:"));
+            eprintln!("{}", pretty::colorize_compile_error(e.trim_end()));
             exit(1);
         });
     let compile_elapsed = compile_start.elapsed();
