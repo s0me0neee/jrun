@@ -38,6 +38,49 @@ jrun --list
 jrun --javac 21 --set-default
 ```
 
+## Examples
+
+**Successful run with runtime exception:**
+
+```
+$ jrun --javac 25 --jvm 25 -W test/StackTraceTest.java
+[Compile] using javac 25.0.2
+[Compile] success → test/build (247.3ms)
+[Run] using jvm 25.0.2
+Starting stack trace test...
+Program finished.
+=== EXCEPTION CAUGHT ===
+java.lang.NullPointerException: Cannot invoke "String.length()" because "<local0>" is null
+    at StackTraceTest.level3(StackTraceTest.java:34)
+    at StackTraceTest.level2(StackTraceTest.java:26)
+    at StackTraceTest.level1(StackTraceTest.java:22)
+    at StackTraceTest.causeException(StackTraceTest.java:18)
+    at StackTraceTest.main(StackTraceTest.java:7)
+[Run] finished in 18.5ms
+```
+
+**Compile error with source diagnostics:**
+
+```
+$ jrun --javac 25 --jvm 25 -W test/ErrorTest.java
+[Compile] using javac 25.0.2
+Error: ';' expected
+    ╭─[ test/ErrorTest.java:11:53 ]
+    │
+ 11 │     private static final String MESSAGE = "Hello World" // Missing semicolon
+    │                                                        ┬
+    │                                                        ╰── ';' expected
+────╯
+Error: ';' expected
+    ╭─[ test/ErrorTest.java:13:22 ]
+    │
+ 13 │     String name = "test" // Missing semicolon
+    │                         ┬
+    │                         ╰── ';' expected
+────╯
+error: aborting due to 2 previous errors
+```
+
 ## How it works
 
 On first run, jrun detects the default `java` and `javac` from `$PATH` and writes them to a config file at `~/.config/jrun/config.json`. Subsequent runs read that config so version discovery is skipped unless `--javac` or `--jvm` is passed.
