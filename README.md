@@ -1,6 +1,8 @@
 # jrun2
 
-A fast CLI tool that compiles and runs a Java source file in one command. It discovers all `java`/`javac` installations on your system and lets you target a specific version without touching environment variables.
+A fast CLI tool that compiles and runs a Java source file in one command. Aimed at quick iteration on single-file Java — handy for competitive programming, testing algorithm ideas, or running throwaway scripts without setting up a full project.
+
+It discovers all `java`/`javac` installations on your system and lets you target a specific version without touching environment variables.
 
 ## Install
 
